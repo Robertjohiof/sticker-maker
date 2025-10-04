@@ -1,103 +1,308 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState } from "react";
+
+type Opt = { id: string; label: string; prompt: string };
+
+// Style options append to the *positive* prompt
+const STYLE_OPTIONS: Opt[] = [
+  {
+    id: "cute",
+    label: "Cute chibi",
+    prompt: "cute chibi style, rounded shapes, big eyes",
+  },
+  {
+    id: "neon",
+    label: "Neon cyberpunk",
+    prompt: "neon glow accents, cyberpunk, vibrant colors",
+  },
+  {
+    id: "pastel",
+    label: "Pastel kawaii",
+    prompt: "pastel palette, kawaii aesthetic",
+  },
+  { id: "watercolor", label: "Watercolor", prompt: "soft watercolor look" },
+  {
+    id: "pixel",
+    label: "Pixel art",
+    prompt: "8-bit pixel art, limited palette",
+  },
+];
+
+// Negative presets append to the *negative* prompt
+const NEGATIVE_OPTIONS: Opt[] = [
+  {
+    id: "text",
+    label: "No text/logos",
+    prompt: "text, watermark, logo, caption, signature",
+  },
+  {
+    id: "edges",
+    label: "Clean edges",
+    prompt: "jagged edges, aliasing, compression artifacts",
+  },
+  {
+    id: "background",
+    label: "No complex background",
+    prompt: "busy background, clutter, scenery",
+  },
+  {
+    id: "anatomy",
+    label: "Fix anatomy",
+    prompt: "extra fingers, mutated hands, bad anatomy",
+  },
+];
+
+export default function Page() {
+  const [prompt, setPrompt] = useState("a cute cyber cat sticker");
+  const [imgUrl, setImgUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [width, setWidth] = useState(1152);
+  const [height, setHeight] = useState(1152);
+  const [seed, setSeed] = useState<number | "">("");
+  const [styleIds, setStyleIds] = useState<string[]>([]);
+  const [negIds, setNegIds] = useState<string[]>(["text", "edges", "anatomy"]); // sane defaults
+
+  const toggle = (ids: string[], id: string, setter: (v: string[]) => void) =>
+    setter(ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]);
+
+  async function enhancePrompt() {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch("/api/prompt-helper", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, styles: styleIds }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Enhance failed");
+      setPrompt(data.prompt);
+    } catch (e: any) {
+      setError(e?.message ?? "Prompt helper failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function generate() {
+    setLoading(true);
+    setError(null);
+    setImgUrl(null);
+
+    try {
+      const styleText = STYLE_OPTIONS.filter((o) => styleIds.includes(o.id))
+        .map((o) => o.prompt)
+        .join(", ");
+
+      const finalPrompt =
+        styleText.length > 0 ? `${prompt}, ${styleText}` : prompt;
+
+      const negativePrompt = NEGATIVE_OPTIONS.filter((o) =>
+        negIds.includes(o.id)
+      )
+        .map((o) => o.prompt)
+        .join(", ");
+
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: finalPrompt,
+          negativePrompt: negativePrompt || undefined,
+          width,
+          height,
+          seed: seed === "" ? undefined : Number(seed),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Server error");
+      setImgUrl(data.url); // WebP data URL or normal URL
+    } catch (e: any) {
+      setError(e?.message ?? "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!loading) generate();
+  }
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <main className="mx-auto max-w-3xl p-6 space-y-6 text-neutral-100">
+      <h1 className="text-3xl font-bold">Sticker Maker</h1>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+      <form onSubmit={onSubmit} className="space-y-4">
+        <label className="block">
+          <span className="text-sm">Prompt</span>
+          <div className="mt-1 flex gap-2">
+            <input
+              className="w-full rounded border border-neutral-700 bg-neutral-900 p-3"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="Describe your sticker..."
             />
-            Deploy now
-          </a>
+            <button
+              type="button"
+              onClick={enhancePrompt}
+              disabled={loading}
+              className="shrink-0 rounded bg-neutral-800 px-3 py-2 text-sm hover:bg-neutral-700 disabled:opacity-60"
+              title="Rewrite with AI"
+            >
+              Enhance
+            </button>
+          </div>
+        </label>
+
+        {/* Sizes */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <label className="block">
+            <span className="text-sm">Width</span>
+            <input
+              className="mt-1 w-full rounded border border-neutral-700 bg-neutral-900 p-3"
+              type="number"
+              min={512}
+              max={1536}
+              step={64}
+              value={width}
+              onChange={(e) => setWidth(Number(e.target.value))}
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-sm">Height</span>
+            <input
+              className="mt-1 w-full rounded border border-neutral-700 bg-neutral-900 p-3"
+              type="number"
+              min={512}
+              max={1536}
+              step={64}
+              value={height}
+              onChange={(e) => setHeight(Number(e.target.value))}
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-sm">Seed (optional)</span>
+            <input
+              className="mt-1 w-full rounded border border-neutral-700 bg-neutral-900 p-3"
+              type="number"
+              value={seed}
+              onChange={(e) =>
+                setSeed(e.target.value === "" ? "" : Number(e.target.value))
+              }
+              placeholder="e.g. 1234"
+            />
+          </label>
+        </div>
+
+        {/* Styles */}
+        <fieldset className="grid gap-2">
+          <legend className="text-sm text-neutral-300">Styles</legend>
+          <div className="flex flex-wrap gap-2">
+            {STYLE_OPTIONS.map((o) => (
+              <label
+                key={o.id}
+                className={`cursor-pointer rounded-full border px-3 py-1 text-sm ${
+                  styleIds.includes(o.id)
+                    ? "border-neutral-300 bg-neutral-200 text-black"
+                    : "border-neutral-700 bg-neutral-900"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  className="sr-only"
+                  checked={styleIds.includes(o.id)}
+                  onChange={() => toggle(styleIds, o.id, setStyleIds)}
+                />
+                {o.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        {/* Negative presets */}
+        <fieldset className="grid gap-2">
+          <legend className="text-sm text-neutral-300">Negative presets</legend>
+          <div className="flex flex-wrap gap-2">
+            {NEGATIVE_OPTIONS.map((o) => (
+              <label
+                key={o.id}
+                className={`cursor-pointer rounded-full border px-3 py-1 text-sm ${
+                  negIds.includes(o.id)
+                    ? "border-red-300 bg-red-200 text-black"
+                    : "border-neutral-700 bg-neutral-900"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  className="sr-only"
+                  checked={negIds.includes(o.id)}
+                  onChange={() => toggle(negIds, o.id, setNegIds)}
+                />
+                {o.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="rounded bg-white px-4 py-2 font-medium text-black disabled:opacity-60"
+        >
+          {loading ? "Generating…" : "Generate"}
+        </button>
+      </form>
+
+      {error && (
+        <p
+          className="text-red-500 whitespace-pre-wrap"
+          role="status"
+          aria-live="polite"
+        >
+          {error}
+        </p>
+      )}
+
+      {imgUrl && (
+        <div className="space-y-3">
+          <div className="relative inline-block overflow-hidden rounded-xl shadow-2xl">
+            {/* Checkerboard for transparency */}
+            <div
+              className="
+                absolute inset-0
+                [background-image:linear-gradient(45deg,#444_25%,transparent_25%,transparent_75%,#444_75%),linear-gradient(45deg,#444_25%,transparent_25%,transparent_75%,#444_75%)]
+                [background-size:24px_24px]
+                [background-position:0_0,12px_12px]
+                opacity-40
+              "
+            />
+            <img
+              src={imgUrl}
+              alt="AI generated sticker"
+              className="relative z-10 block w-full max-w-xl"
+            />
+          </div>
+
           <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            href={imgUrl}
+            download="sticker.webp"
+            className="inline-block rounded border border-neutral-700 px-3 py-1"
           >
-            Read our docs
+            Download WebP
           </a>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      )}
+
+      <p className="text-xs text-neutral-500">
+        Uses Replicate (image) + OpenAI (prompt helper). Non-commercial
+        educational use.
+      </p>
+    </main>
   );
 }
