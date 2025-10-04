@@ -1,5 +1,6 @@
 import Replicate from "replicate";
 import { NextResponse } from "next/server";
+export const runtime = "nodejs";
 
 const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN!,
