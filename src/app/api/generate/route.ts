@@ -2,8 +2,12 @@ import Replicate from "replicate";
 import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 
+// 👇 Accept either env var name (works on Vercel and locally)
+const REPLICATE_AUTH =
+  process.env.REPLICATE_API_KEY || process.env.REPLICATE_API_TOKEN;
+
 const replicate = new Replicate({
-  auth: process.env.REPLICATE_API_TOKEN!,
+  auth: REPLICATE_AUTH as string,
 });
 
 const MODEL =
@@ -49,7 +53,7 @@ async function toDataUrl(
       return Buffer.from(new Uint8Array(ab));
     }
     // ReadableStream (what you're seeing)
-    if (val && typeof val.getReader === "function") {
+    if (val && typeof (val as any).getReader === "function") {
       return await streamToBuffer(val as ReadableStream);
     }
     return null;
@@ -66,6 +70,17 @@ async function toDataUrl(
 }
 
 export async function POST(request: Request) {
+  // Fail fast if token is missing on the server (Vercel env misconfig etc.)
+  if (!REPLICATE_AUTH) {
+    return NextResponse.json(
+      {
+        error:
+          "Server is missing Replicate credentials. Set REPLICATE_API_KEY or REPLICATE_API_TOKEN in your environment.",
+      },
+      { status: 500 }
+    );
+  }
+
   try {
     const { prompt, width, height, seed, negativePrompt } =
       (await request.json()) as {
@@ -103,14 +118,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ url: dataUrl });
   } catch (err: any) {
     const status = err?.response?.status || err?.status;
-    const detail =
+
+    let msg =
       err?.error?.message ||
       err?.response?.statusText ||
       err?.message ||
       "Unknown error calling Replicate";
 
-    let msg = detail;
-    if (status === 402) {
+    if (status === 401) {
+      msg =
+        "Unauthorized from Replicate. Double-check REPLICATE_API_KEY / REPLICATE_API_TOKEN in Vercel.";
+    } else if (status === 402) {
       msg =
         "Insufficient credit on Replicate. Add credit at replicate.com/account/billing, then try again.";
     } else if (status === 429) {
@@ -118,7 +136,7 @@ export async function POST(request: Request) {
         "Rate limited. Wait a few seconds and try again (limit without payment method).";
     }
 
-    console.error("Replicate error:", { status, detail, raw: err });
+    console.error("Replicate error:", { status, msg, raw: err });
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
