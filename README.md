@@ -4,10 +4,35 @@ Generate glossy, transparent-background sticker PNG/WebP images from text prompt
 Includes a one-click Enhance button powered by OpenAI to improve the prompt automatically.
 
 
-All Links:
+Alle linkene:
 **Live demo:** https://sticker-maker.vercel.app  
 **Repository:** https://github.com/Robertjohiof/sticker-maker
 **ChatGPT:** https://chatgpt.com/share/68e153cd-b99c-800b-8ce3-d977fc1c92d7
+
+
+***AI-verktøy og teknologier brukt i prosjektet***
+
+Dette prosjektet ble utviklet med hjelp av flere ulike AI-verktøy og API-er som samarbeidet for å både bygge applikasjonen og generere de ferdige klistremerkebildene.
+
+**ChatGPT (GPT-5) – fungerte som hovedutviklingsverktøyet, med ansvar for strukturering av Next.js + TypeScript-applikasjonen, oppsett av API-logikk, optimalisering av brukergrensesnitt og implementering av TailwindCSS-designsystemet.
+
+**Claude.ai – bidro med finpuss av utseende og visuell balanse, og hjalp til med tekstpresentasjon og siste detaljer i layouten.
+
+**GitHub Copilot – ga automatiske kodeforslag og små syntaks-forbedringer direkte i VS Code under utviklingen.
+
+**Replicate API – håndterte AI-bildemotoren, og koblet frontend-applikasjonen opp mot avanserte generative modeller.
+
+**fofr/sticker-maker-modellen (hostet på Replicate) – selve bildegeneratoren som laget klistremerker med gjennomsiktig bakgrunn basert på brukerens prompt.
+
+**AlbedoBase XL (av albedobond, publisert på CivitAI) – en grunnmodell basert på Stable Diffusion XL 1.0, som benyttes som en del av trenings- og modellgrunnlaget for sticker-maker-modellen, og som bidrar til lyssetting, fargetoner og fotorealistiske detaljer.
+
+**OpenAI-modeller – ble brukt til forbedring av prompt-tekst, slik at brukeren kunne raffinere beskrivelsen før bildegenerering.
+
+Sammen sørget disse AI-systemene for en komplett prosess – der ChatGPT stod for logikk og struktur, Claude.ai finjusterte det visuelle uttrykket, Copilot effektiviserte koden, og Replicate med fofr/sticker-maker (bygget på AlbedoBase XL) sto for selve bildegenereringen – noe som resulterte i et funksjonelt, kreativt og læringsrettet AI Sticker Maker bygget med Next.js, TypeScript og TailwindCSS.
+
+
+Prosjektet er laget av Robert Johannessen, med støtte fra flere AI-verktøy.
+
 
 
 ✨ Features
