@@ -24,3 +24,13 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Nuke any auto “show the href” content */
+a.no-url-after::after,
+.no-url-after::after,
+a[href].no-url-after::after,
+a[href^="data:image/"]::after {
+  content: none !important;
+  display: none !important;
+}
+
