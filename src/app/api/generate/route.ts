@@ -1,6 +1,12 @@
 import Replicate from "replicate";
 import { NextResponse } from "next/server";
+import { checkGuestLimit } from "@/lib/guestLimit";
 export const runtime = "nodejs";
+
+// Keep requests within the sizes the UI offers, so a crafted request can't cost more
+const clampSize = (value: number | undefined) =>
+  Math.min(1536, Math.max(512, Math.round(value ?? 1152)));
+const MAX_PROMPT_LENGTH = 500;
 
 // 👇 Accept either env var name (works on Vercel and locally)
 const REPLICATE_AUTH =
@@ -81,6 +87,11 @@ export async function POST(request: Request) {
     );
   }
 
+  const limit = await checkGuestLimit(request, "generate");
+  if (!limit.allowed) {
+    return NextResponse.json({ error: limit.message }, { status: 429 });
+  }
+
   try {
     const { prompt, width, height, seed, negativePrompt } =
       (await request.json()) as {
@@ -93,12 +104,13 @@ export async function POST(request: Request) {
 
     const output = await replicate.run(MODEL, {
       input: {
-        prompt: prompt ?? "a cute cyber cat sticker",
-        negative_prompt:
+        prompt: (prompt ?? "a cute cyber cat sticker").slice(0, MAX_PROMPT_LENGTH),
+        negative_prompt: (
           negativePrompt ??
-          "blurry, low quality, deformed, disfigured, distorted, ugly, out of frame, too many fingers, long neck, ugly eyes, bad anatomy",
-        width: width ?? 1152,
-        height: height ?? 1152,
+          "blurry, low quality, deformed, disfigured, distorted, ugly, out of frame, too many fingers, long neck, ugly eyes, bad anatomy"
+        ).slice(0, MAX_PROMPT_LENGTH),
+        width: clampSize(width),
+        height: clampSize(height),
         steps: 17,
         output_format: "webp",
         output_quality: 100,
@@ -115,7 +127,7 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ url: dataUrl });
+    return NextResponse.json({ url: dataUrl, remaining: limit.remaining });
   } catch (err: any) {
     const status = err?.response?.status || err?.status;
 

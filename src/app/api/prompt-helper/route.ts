@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
+import { checkGuestLimit } from "@/lib/guestLimit";
 export const runtime = "nodejs";
 
 const client = new OpenAI({
@@ -7,6 +8,11 @@ const client = new OpenAI({
 });
 
 export async function POST(req: Request) {
+  const limit = await checkGuestLimit(req, "enhance");
+  if (!limit.allowed) {
+    return NextResponse.json({ error: limit.message }, { status: 429 });
+  }
+
   try {
     const { prompt, styles } = (await req.json()) as {
       prompt?: string;
@@ -31,9 +37,9 @@ export async function POST(req: Request) {
         { role: "system", content: system },
         {
           role: "user",
-          content: `Rewrite this into a better sticker prompt.\n${styleText}\n\nPrompt: ${
+          content: `Rewrite this into a better sticker prompt.\n${styleText}\n\nPrompt: ${(
             prompt ?? ""
-          }`,
+          ).slice(0, 500)}`,
         },
       ],
     });
